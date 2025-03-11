@@ -5,7 +5,7 @@ services:
     image: postgres:latest
     container_name: fincheck-db
     env_file:
-      - .env.dev
+      - .env.development
     ports:
       - '5432:5432'
     volumes:

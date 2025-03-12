@@ -2,8 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import * as request from 'supertest';
 import { AppModule } from '../src/app.module';
-import { compare } from 'bcryptjs';
-import { isUUID } from 'class-validator';
+import { verify } from 'jsonwebtoken';
 
 describe('UsersController (e2e)', () => {
   let app: INestApplication;
@@ -20,62 +19,55 @@ describe('UsersController (e2e)', () => {
     await app.init();
   });
 
-  describe('/users (POST)', () => {
-    const baseRequest = () => request(app.getHttpServer()).post('/users');
+  describe('/auth/signin (POST)', () => {
+    const baseRequest = () => request(app.getHttpServer()).post('/auth/signin');
 
     it('With valid data', async () => {
       return baseRequest()
         .send({
-          name: 'Juan Veronez',
           email: 'juan@veronez.com',
           password: 'abcd1234',
         })
         .expect(201)
-        .expect(async (res) => {
-          expect(res.body).toHaveProperty('id');
-          expect(res.body).toHaveProperty('password');
+        .expect((res) => {
+          expect(res.body).toHaveProperty('accessToken');
 
-          expect(res.body.name).toMatch('Juan Veronez');
-          expect(res.body.email).toMatch('juan@veronez.com');
-
-          expect(isUUID(res.body.id)).toBeTruthy();
-          expect(await compare('abcd1234', res.body.password)).toBeTruthy();
+          const isValid = verify(res.body.accessToken, process.env.JWT_SECRET);
+          expect(isValid).toBeTruthy();
         });
     });
 
-    it('With already used `email`', async () => {
+    it('With not existent `email`', async () => {
       return baseRequest()
         .send({
-          name: 'Juan Veronez',
-          email: 'juan@veronez.com',
+          email: 'juan+1@veronez.com',
           password: 'abcd1234',
         })
-        .expect(409)
+        .expect(401)
         .expect({
-          message: 'This email is already in use',
-          error: 'Conflict',
-          statusCode: 409,
+          message: 'Invalid credentials.',
+          error: 'Unauthorized',
+          statusCode: 401,
         });
     });
 
-    it('Without `name`', () => {
+    it('With invalid `password`', async () => {
       return baseRequest()
         .send({
           email: 'juan@veronez.com',
-          password: 'abcd1234',
+          password: '1234abcd',
         })
-        .expect(400)
+        .expect(401)
         .expect({
-          message: ['name should not be empty', 'name must be a string'],
-          error: 'Bad Request',
-          statusCode: 400,
+          message: 'Invalid credentials.',
+          error: 'Unauthorized',
+          statusCode: 401,
         });
     });
 
     it('Without `email`', () => {
       return baseRequest()
         .send({
-          name: 'Juan Veronez',
           password: 'abcd1234',
         })
         .expect(400)
@@ -93,7 +85,6 @@ describe('UsersController (e2e)', () => {
     it('Without `password`', () => {
       return baseRequest()
         .send({
-          name: 'Juan Veronez',
           email: 'juan@veronez.com',
         })
         .expect(400)
@@ -111,7 +102,6 @@ describe('UsersController (e2e)', () => {
     it('With bad format `email`', () => {
       return baseRequest()
         .send({
-          name: 'Juan Veronez',
           email: 'juanveronez',
           password: 'abcd1234',
         })
@@ -126,7 +116,6 @@ describe('UsersController (e2e)', () => {
     it('With `password` length lower then expected', () => {
       return baseRequest()
         .send({
-          name: 'Juan Veronez',
           email: 'juan@veronez.com',
           password: 'abcd12',
         })

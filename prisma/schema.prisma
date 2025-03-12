@@ -62,7 +62,7 @@ model TransactionCategory {
   icon   String
   type   TransactionType
 
-  user         User          @relation(fields: [userId], references: [id])
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   transactions Transaction[]
 
   @@map("transaction_categories")
